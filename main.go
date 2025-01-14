@@ -20,8 +20,57 @@ func main() {
 	r.POST("/postData", dataStore)
 	r.GET("/getData/:database/:collection", dataRetrive)
 	r.GET("/getData/:database/:collection/:id", dataById)
+	r.DELETE("/delete/:database/:collection/:id", deleteData)
 
 	r.Run(":8080")
+}
+
+func deleteData(c *gin.Context) {
+	id := c.Param("id")
+	Dir := "./Database"
+	db := c.Param("database")
+	collection := c.Param("collection")
+
+	if db == "" || collection == "" {
+		c.JSON(200, gin.H{"error": "enter valid db and collection"})
+	}
+
+	collectionPath := filepath.Join(Dir, db, collection+".json")
+
+	jsonData, err := ioutil.ReadFile(collectionPath)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "no valid collection available"})
+	}
+
+	var parsedData []map[string]interface{}
+
+	if err := json.Unmarshal(jsonData, &parsedData); err != nil {
+		c.JSON(500, gin.H{"error": "error parsing data"})
+	}
+
+	itemDeleted := false
+	for i, data := range parsedData {
+		if data["id"] == id {
+			parsedData = append(parsedData[:i], parsedData[i+1:]...)
+			itemDeleted = true
+			break
+		}
+	}
+
+	if itemDeleted == false {
+		c.JSON(200, gin.H{"error": "item not found"})
+	}
+
+	updatedData, err := json.MarshalIndent(parsedData, "", "  ")
+	if err != nil {
+		c.JSON(500, gin.H{"error": "error updating data"})
+	}
+
+	if err := ioutil.WriteFile(collectionPath, updatedData, os.ModePerm); err != nil {
+		c.JSON(500, gin.H{"error": "error writing data"})
+	}
+
+	c.JSON(200, gin.H{"message ": fmt.Sprintf("item deleted with ID %v", id)})
 }
 
 func dataById(c *gin.Context) {
