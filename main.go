@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,9 +18,52 @@ func main() {
 		c.JSON(200, gin.H{"Update": "working"})
 	})
 	r.POST("/postData", dataStore)
-	r.POST("/getData/:database/:collection", dataRetrive)
+	r.GET("/getData/:database/:collection", dataRetrive)
+	r.GET("/getData/:database/:collection/:id", dataById)
 
 	r.Run(":8080")
+}
+
+func dataById(c *gin.Context) {
+	id := c.Param("id")
+	Dir := "./Database"
+	db := c.Param("database")
+	collection := c.Param("collection")
+
+	if db == "" || collection == "" {
+		c.JSON(200, gin.H{"error": "enter valid db and collection"})
+	}
+
+	collectionPath := filepath.Join(Dir, db, collection+".json")
+
+	jsonData, err := ioutil.ReadFile(collectionPath)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "no valid collection available"})
+	}
+
+	var parsedData []map[string]interface{}
+
+	if err := json.Unmarshal(jsonData, &parsedData); err != nil {
+		c.JSON(500, gin.H{"error": "error parsing data"})
+	}
+
+	var IdData map[string]interface{}
+	found := false
+
+	for _, data := range parsedData {
+		if data["id"] == id {
+			IdData = data
+			found = true
+			break
+		}
+
+	}
+
+	if found {
+		c.JSON(200, IdData)
+	} else {
+		c.JSON(404, gin.H{"error": "invalid id"})
+	}
 }
 
 func dataRetrive(c *gin.Context) {
@@ -55,23 +99,24 @@ func dataStore(c *gin.Context) {
 		c.JSON(400, gin.H{"Message ": "Collection or DB name is missing"})
 	}
 
-	var inputData []map[string]interface{}
+	var inputData map[string]interface{}
 
 	if err := c.ShouldBind(&inputData); err != nil {
 		c.JSON(400, gin.H{"error": "send good jsonm you fucker"})
 	}
 
-	if err := saveData(DBname, Collection, inputData); err != nil {
-		c.JSON(400, gin.H{"error": "saving data"})
-	}
+	id := saveData(DBname, Collection, inputData)
 
-	c.JSON(200, gin.H{"message": "saved data"})
+	c.JSON(200, gin.H{"message": "data saved successfully!", "Id": id})
 }
 
-func saveData(DBname string, Collection string, inputData []map[string]interface{}) error {
+func saveData(DBname string, Collection string, inputData map[string]interface{}) string {
 	Dir := "./Databases"
 	dbPath := filepath.Join(Dir, DBname)
 	CollectionPath := filepath.Join(dbPath, Collection+".json")
+
+	newID := uuid.New().String()
+	inputData["id"] = newID
 
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(dbPath, os.ModePerm); err != nil {
@@ -98,7 +143,7 @@ func saveData(DBname string, Collection string, inputData []map[string]interface
 		}
 	}
 
-	if err := append(existingData, inputData...); err != nil {
+	if err := append(existingData, inputData); err != nil {
 		fmt.Errorf("issue appending data")
 	}
 
@@ -110,5 +155,5 @@ func saveData(DBname string, Collection string, inputData []map[string]interface
 	if err := os.WriteFile(CollectionPath, encodedData, os.ModePerm); err != nil {
 		fmt.Errorf("issue writing data to database")
 	}
-	return nil
+	return newID
 }
