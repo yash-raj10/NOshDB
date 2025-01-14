@@ -27,7 +27,7 @@ func main() {
 
 func deleteData(c *gin.Context) {
 	id := c.Param("id")
-	Dir := "./Database"
+	Dir := "./Databases"
 	db := c.Param("database")
 	collection := c.Param("collection")
 
@@ -75,7 +75,7 @@ func deleteData(c *gin.Context) {
 
 func dataById(c *gin.Context) {
 	id := c.Param("id")
-	Dir := "./Database"
+	Dir := "./Databases"
 	db := c.Param("database")
 	collection := c.Param("collection")
 
@@ -126,6 +126,11 @@ func dataRetrive(c *gin.Context) {
 	Dir := "./Databases"
 	collectionPath := filepath.Join(Dir, db, collection+".json")
 
+	if _, err := os.Stat(collectionPath); os.IsNotExist(err) {
+		c.JSON(404, gin.H{"error": "collection not found"})
+		return
+	}
+
 	jsonData, err := ioutil.ReadFile(collectionPath)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "no valid collection available"})
@@ -151,7 +156,7 @@ func dataStore(c *gin.Context) {
 	var inputData map[string]interface{}
 
 	if err := c.ShouldBind(&inputData); err != nil {
-		c.JSON(400, gin.H{"error": "send good jsonm you fucker"})
+		c.JSON(400, gin.H{"error": "send good json you fucker"})
 	}
 
 	id := saveData(DBname, Collection, inputData)
@@ -192,9 +197,7 @@ func saveData(DBname string, Collection string, inputData map[string]interface{}
 		}
 	}
 
-	if err := append(existingData, inputData); err != nil {
-		fmt.Errorf("issue appending data")
-	}
+	existingData = append(existingData, inputData)
 
 	encodedData, err := json.MarshalIndent(existingData, "", "  ")
 	if err != nil {
