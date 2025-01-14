@@ -16,13 +16,38 @@ func main() {
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{"Update": "working"})
 	})
-
-	r.POST("/post", datastore)
+	r.POST("/postData", dataStore)
+	r.POST("/getData/:database/:collection", dataRetrive)
 
 	r.Run(":8080")
 }
 
-func datastore(c *gin.Context) {
+func dataRetrive(c *gin.Context) {
+	db := c.Param("database")
+	collection := c.Param("collection")
+
+	if db == "" || collection == "" {
+		c.JSON(200, gin.H{"error": "enter valid db and collection"})
+	}
+
+	Dir := "./Databases"
+	collectionPath := filepath.Join(Dir, db, collection+".json")
+
+	jsonData, err := ioutil.ReadFile(collectionPath)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "no valid collection available"})
+	}
+
+	var parsedData []map[string]interface{}
+
+	if err := json.Unmarshal(jsonData, &parsedData); err != nil {
+		c.JSON(500, gin.H{"error": "error parsing data"})
+	}
+
+	c.JSON(200, parsedData)
+}
+
+func dataStore(c *gin.Context) {
 	DBname := c.GetHeader("database")
 	Collection := c.GetHeader("Collection")
 
@@ -60,12 +85,30 @@ func saveData(DBname string, Collection string, inputData []map[string]interface
 		}
 	}
 
-	jsonData, _ := ioutil.ReadFile(CollectionPath)
-	var existingData []map[string]interface{}
-	if len(jsonData) > 0 {
-		json.Unmarshal(jsonData, &existingData)
+	jsonData, err := ioutil.ReadFile(CollectionPath)
+	if err != nil {
+		fmt.Errorf("issue reading databases collection")
 	}
-	existingData = append(existingData, inputData...)
 
+	var existingData []map[string]interface{}
+
+	if len(jsonData) > 0 {
+		if err := json.Unmarshal(jsonData, &existingData); err != nil {
+			fmt.Errorf("issue parsing databases collection")
+		}
+	}
+
+	if err := append(existingData, inputData...); err != nil {
+		fmt.Errorf("issue appending data")
+	}
+
+	encodedData, err := json.MarshalIndent(existingData, "", "  ")
+	if err != nil {
+		fmt.Errorf("issue encoding data")
+	}
+
+	if err := os.WriteFile(CollectionPath, encodedData, os.ModePerm); err != nil {
+		fmt.Errorf("issue writing data to database")
+	}
 	return nil
 }
