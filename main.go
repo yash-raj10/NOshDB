@@ -1,10 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -35,16 +35,16 @@ func deleteData(c *gin.Context) {
 		c.JSON(200, gin.H{"error": "enter valid db and collection"})
 	}
 
-	collectionPath := filepath.Join(Dir, db, collection+".json")
+	collectionPath := filepath.Join(Dir, db, collection+".yaml")
 
-	jsonData, err := ioutil.ReadFile(collectionPath)
+	yamlData, err := ioutil.ReadFile(collectionPath)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "no valid collection available"})
 	}
 
 	var parsedData []map[string]interface{}
 
-	if err := json.Unmarshal(jsonData, &parsedData); err != nil {
+	if err := yaml.Unmarshal(yamlData, &parsedData); err != nil {
 		c.JSON(500, gin.H{"error": "error parsing data"})
 	}
 
@@ -61,7 +61,7 @@ func deleteData(c *gin.Context) {
 		c.JSON(200, gin.H{"error": "item not found"})
 	}
 
-	updatedData, err := json.MarshalIndent(parsedData, "", "  ")
+	updatedData, err := yaml.Marshal(parsedData)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "error updating data"})
 	}
@@ -83,16 +83,16 @@ func dataById(c *gin.Context) {
 		c.JSON(200, gin.H{"error": "enter valid db and collection"})
 	}
 
-	collectionPath := filepath.Join(Dir, db, collection+".json")
+	collectionPath := filepath.Join(Dir, db, collection+".yaml")
 
-	jsonData, err := ioutil.ReadFile(collectionPath)
+	yamlData, err := ioutil.ReadFile(collectionPath)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "no valid collection available"})
 	}
 
 	var parsedData []map[string]interface{}
 
-	if err := json.Unmarshal(jsonData, &parsedData); err != nil {
+	if err := yaml.Unmarshal(yamlData, &parsedData); err != nil {
 		c.JSON(500, gin.H{"error": "error parsing data"})
 	}
 
@@ -124,21 +124,21 @@ func dataRetrive(c *gin.Context) {
 	}
 
 	Dir := "./Databases"
-	collectionPath := filepath.Join(Dir, db, collection+".json")
+	collectionPath := filepath.Join(Dir, db, collection+".yaml")
 
 	if _, err := os.Stat(collectionPath); os.IsNotExist(err) {
 		c.JSON(404, gin.H{"error": "collection not found"})
 		return
 	}
 
-	jsonData, err := ioutil.ReadFile(collectionPath)
+	yamlData, err := ioutil.ReadFile(collectionPath)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "no valid collection available"})
 	}
 
 	var parsedData []map[string]interface{}
 
-	if err := json.Unmarshal(jsonData, &parsedData); err != nil {
+	if err := yaml.Unmarshal(yamlData, &parsedData); err != nil {
 		c.JSON(500, gin.H{"error": "error parsing data"})
 	}
 
@@ -167,7 +167,7 @@ func dataStore(c *gin.Context) {
 func saveData(DBname string, Collection string, inputData map[string]interface{}) string {
 	Dir := "./Databases"
 	dbPath := filepath.Join(Dir, DBname)
-	CollectionPath := filepath.Join(dbPath, Collection+".json")
+	CollectionPath := filepath.Join(dbPath, Collection+".yaml")
 
 	newID := uuid.New().String()
 	inputData["id"] = newID
@@ -184,22 +184,22 @@ func saveData(DBname string, Collection string, inputData map[string]interface{}
 		}
 	}
 
-	jsonData, err := ioutil.ReadFile(CollectionPath)
+	yamlData, err := ioutil.ReadFile(CollectionPath)
 	if err != nil {
 		fmt.Errorf("issue reading databases collection")
 	}
 
 	var existingData []map[string]interface{}
 
-	if len(jsonData) > 0 {
-		if err := json.Unmarshal(jsonData, &existingData); err != nil {
+	if len(yamlData) > 0 {
+		if err := yaml.Unmarshal(yamlData, &existingData); err != nil {
 			fmt.Errorf("issue parsing databases collection")
 		}
 	}
 
 	existingData = append(existingData, inputData)
 
-	encodedData, err := json.MarshalIndent(existingData, "", "  ")
+	encodedData, err := yaml.Marshal(existingData)
 	if err != nil {
 		fmt.Errorf("issue encoding data")
 	}
